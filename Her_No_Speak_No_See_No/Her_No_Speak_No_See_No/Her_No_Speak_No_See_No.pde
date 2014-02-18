@@ -11,6 +11,7 @@ Spacebrew Collab Spring 2014
  */
 
 import spacebrew.*;
+import ddf.minim.*;
 
 // Spacebrew stuff
 String server = "sandbox.spacebrew.cc";
@@ -26,16 +27,19 @@ color darkBeige = color(237, 212, 183);
 color rouge = color(194, 23, 21);
 
 //Susse's variables
+//create array for the three monkey images
+PImage[] fragment;
+//create variable for the number of monkeysin the array
+int n=3;
+int time;
+int wait = 1000;
 
+int monkeyVal = 50;
 
+int counter = 0;
 
-
-
-
-
-
-
-
+AudioPlayer player;
+Minim minim; //audio context
 
 
 
@@ -55,23 +59,12 @@ boolean recording_received = false;
 int stephTimer = 0;
 
 
-
-
-
-
 //Adiel's variables
+PImage monkey;
+PImage bandage;
 
-
-
-
-
-
-
-
-
-
-
-
+ArrayList<Particle> particles;
+boolean exploded = false;
 
 
 // App Size: you should decide on a width and height
@@ -88,25 +81,21 @@ void setup() {
   size( appWidth, appHeight );
 
   //Susse's setup
+//assign new values to PImage
+fragment = new PImage[n];
+for(int i =0; i < fragment.length; i++){
+  //I loading images
+  fragment[i]=loadImage(str(i) + ".jpg");
+}
 
+time = millis(); //stores the current time
 
-
-
-
-
-
-
-
-
-
+minim = new Minim(this);
+player = minim.loadFile("true_To_Life.mp3", 2048);
 
 
 
   //Steph's setup
-
-
-
-  background(0);
   frameRate(5);
 
 
@@ -127,37 +116,52 @@ void setup() {
 
 
 
-
   //Adiel's setup
+  monkey = loadImage("monkeyWhiteEyes.png");
+  bandage = loadImage("bandageSmall.png");
+  //image(bandage, width, 0);
 
+  bandage.loadPixels();
+  
+  //pixels[y*width+x]
 
+  particles = new ArrayList<Particle>();
+  
+  int res = 10;
 
-
-
-
-
-
-
-
-
+  for (int i = 0; i < bandage.height * bandage.width; i+=res) {
+    color C = bandage.pixels[i];
+    if(alpha(C) > 10){
+      color thisCol = rouge; 
+      if(blue(C) > 40){
+        thisCol = darkBlue;
+      }
+      int x = i % bandage.width;
+      int y = (i - x)/bandage.width; 
+      
+      Particle p = new Particle(x + width*2/3 + width/6 - bandage.width/2, y + 220, thisCol);
+      particles.add(p);
+      
+    }
+  }  
 
 
 
   sb = new Spacebrew(this);
   sb.addPublish("doneExquisite", "boolean", false);
   sb.addSubscribe("startExquisite", "boolean");
-
+  //sb.addPublish("monkeySlider", "range", monkeyVal);
   sb.addSubscribe("stephInput", "boolean");
-
-  // add any of your own subscribers here!
-
+  sb.addSubscribe("moveMonkey", "range");
+  sb.addSubscribe("adielInput", "boolean");
   sb.connect( server, name, desc );
+
 }
 
 void draw() {
   // this will make it only render to screen when in EC draw mode
-  if (!bDrawing) bDrawing = true; //back to return and delete dDraw
-  //if (!bDrawing) return;
+  //if (!bDrawing) bDrawing = true; //back to return and delete dDraw
+  if (!bDrawing) return;
 
   // blank out your background once
   if ( bNeedToClear ) {
@@ -167,8 +171,36 @@ void draw() {
 
   // ---- start person 1 ---- //
   bNeedToClear = true;
-  if ( millis() - corpseStarted < 10000 ) {
-
+if ( millis() - corpseStarted < 10000 ){
+    fill(lightBeige);
+    stroke(255);
+    rect(0, 0, width / 3.0, height );
+    fill(255);
+     
+  player.play();
+  image(fragment[counter], 100, 200);
+  
+  if((millis() - corpseStarted) < 3000){
+    counter++;
+    if(counter > 2){
+      counter = 0;
+      // add text to button
+      fill(rouge);
+      textAlign(CENTER);
+      textSize(1+monkeyVal);
+      text("DANCE", 200, 600);
+    }
+  } else if ((millis() - corpseStarted) < 6000) {
+    counter++;
+    if(counter > 2){
+      counter = 0;
+    }
+  } else if ((millis() - corpseStarted) < 10000) {
+    counter++;
+    if(counter > 2){
+      counter = 0;
+    }
+  }
 
 
 
@@ -176,7 +208,7 @@ void draw() {
     // ---- start person 2 ---- //
   } 
   else if ( millis() - corpseStarted < 20000 ) {
-
+      fill(lightBeige);
 
 
     if (recording_received == true) {
@@ -204,9 +236,12 @@ void draw() {
       }
     }
 
+minim.stop();
 
-
-
+    noFill();
+    stroke(255);
+    rect(width / 3.0, 0, width / 3.0, height );
+    fill(255);
 
 
 
@@ -221,12 +256,29 @@ void draw() {
     rect(width * 2.0/ 3.0, 0, width / 3.0, height );
     fill(255);
 
+    stroke(255);
+    fill(lightBeige);
+    rect(width * 2.0/ 3.0, 0, width / 3.0, height );
+    image(monkey, width * 2.0/ 3.0, 0);
 
+    for (Particle p : particles) {
+        p.update();
+        p.display();
+    }
+  
+    if(exploded){
+      for (Particle p : particles) {
+        p.explode();
+      }
+      exploded = false;
+    }
 
-
-
-
-
+    //animation timer
+    stroke(rouge);
+    strokeWeight(3);
+    float X = map(millis(), corpseStarted + 20000, corpseStarted + 30000, width*2/3, width);
+    line(X, height - 20, X, height);
+    
 
     // ---- we're done! ---- //
   } 
@@ -236,13 +288,8 @@ void draw() {
   }
 }
 
-void mousePressed() {
-  // for debugging, comment this out!
-  sb.send( "doneExquisite", true );
-}
 
 void onBooleanMessage( String name, boolean value ) {
-  println("got boolean message" + name + " : " + value);
 
   if ( name.equals("startExquisite") ) {
     // start the exquisite corpse process!
@@ -250,15 +297,34 @@ void onBooleanMessage( String name, boolean value ) {
     corpseStarted = millis();
     bNeedToClear = true;
   }
+
   if (name.equals("stephInput")) {
     recording_received = true;
     println("steph got a message: " + name);
     stephTimer = millis();
   }
+  if ( name.equals("adielInput") ) {
+    exploded = true;
+  }
+  
 }
+
+
 void onRangeMessage( String name, int value ) {
+  println("moveMonkey" + name + " : " + value);
+  
+  monkeyVal = value;
+  
+  
 }
 
 void onStringMessage( String name, String value ) {
+
+
 }
 
+void stop() {
+  player.close();
+  minim.stop();
+  super.stop();
+}
